@@ -1,0 +1,104 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- scan=true 支持 日志配置重新加载-->
+<configuration scan="true" scanPeriod="30 seconds">
+    <springProperty scope="context" name="logDir" source="logging.path"/>
+    <springProperty scope="context" name="springAppName" source="spring.application.name"/>
+
+    <!-- 放过 低于配置 level 的所有日志 -->
+    <turboFilter class="ch.qos.logback.classic.turbo.MDCFilter">
+        <MDCKey>xTenantId</MDCKey>
+        <Value>xiaohuodui</Value>
+        <OnMatch>ACCEPT</OnMatch>
+    </turboFilter>
+
+    <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>%d{dd-MM-yyyy HH:mm:ss.SSS} %magenta([%thread]) [${springAppName}, %X{xTenantId:-}] %highlight(%-5level) %logger{36}.%M - %msg%n
+            </pattern>
+        </encoder>
+    </appender>
+
+    <appender name="WARNING_UP_LOG" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>${logDir}/server_error.log</file>
+        <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+            <FileNamePattern>${logDir}/archived/server_error.%d{yyyy-MM-dd}</FileNamePattern>
+            <maxHistory>15</maxHistory>
+            <totalSizeCap>10GB</totalSizeCap>
+        </rollingPolicy>
+        <encoder class="ch.qos.logback.classic.encoder.PatternLayoutEncoder">
+            <Pattern>%d{dd-MM-yyyy HH:mm:ss.SSS} [%thread] [${springAppName}, %X{X-B3-TraceId:-}] %-5level %logger{36}.%M - %msg%n
+            </Pattern>
+        </encoder>
+        <filter class="ch.qos.logback.classic.filter.ThresholdFilter"><!-- 只打印警告/错误日志 -->
+            <level>WARN</level>
+        </filter>
+    </appender>
+    <appender name="XIAOHUODUI_BUSS_LOG" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>${logDir}/xiaohuodui_buss.log</file>
+        <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+            <FileNamePattern>${logDir}/archived/xiaohuodui_buss.%d{yyyy-MM-dd}</FileNamePattern>
+            <maxHistory>15</maxHistory>
+            <totalSizeCap>10GB</totalSizeCap>
+        </rollingPolicy>
+        <encoder class="ch.qos.logback.classic.encoder.PatternLayoutEncoder">
+            <Pattern>%d{dd-MM-yyyy HH:mm:ss.SSS} [%thread] [${springAppName}, %X{X-B3-TraceId:-}] %-5level %logger{36}.%M - %msg%n
+            </Pattern>
+        </encoder>
+        <filter class="ch.qos.logback.core.filter.EvaluatorFilter">
+            <evaluator> <!-- defaults to type ch.qos.logback.classic.boolex.JaninoEventEvaluator -->
+                <expression>
+                    if(logger.startsWith("cn.xiaohuodui") &amp;&amp; message.contains("SFLog")){
+                    return true;
+                    }
+                    return false;
+                </expression>
+            </evaluator>
+            <onMismatch>DENY</onMismatch>
+            <onMatch>ACCEPT</onMatch>
+        </filter>
+    </appender>
+
+    <appender name="LOGFILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>${logDir}/server.log</file>
+        <encoder class="ch.qos.logback.classic.encoder.PatternLayoutEncoder">
+            <Pattern>%d{dd-MM-yyyy HH:mm:ss.SSS} [%thread] [${springAppName}, %X{xTenantId:-}] %-5level %logger{36}.%M - %msg%n
+            </Pattern>
+        </encoder>
+        <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+            <fileNamePattern>${logDir}/archived/server_%d{yyyy-MM-dd}.log</fileNamePattern>
+            <maxHistory>15</maxHistory>
+            <totalSizeCap>10GB</totalSizeCap>
+        </rollingPolicy>
+    </appender>
+
+    <appender name="JIMO_APPENDER" class="cn.xiaohuodui.logback.appender.JimoAppender">
+        <!-- Webhook URI, required -->
+        <webHookUri>https://dsc-api.xiaohuodui.cn/v1/logs</webHookUri>
+        <!-- Custom connection timeout, default 5 seconds, TimeUint: millisecond -->
+        <connectTimeout>1000</connectTimeout>
+        <!-- Custom read timeout, default 10 seconds, TimeUint: millisecond -->
+        <readTimeout>3000</readTimeout>
+        <!-- Custom write timeout, default 10 seconds, TimeUint: millisecond -->
+        <writeTimeout>3000</writeTimeout>
+        <!-- a prefix will be ahead of entire title, which can identify the app or env information -->
+        <titlePrefix>junyue-ht-api</titlePrefix>
+        <!-- how many lines will be displayed in the message body, default is 5 -->
+        <stackTraceLines>100</stackTraceLines>
+        <token></token>
+    </appender>
+
+    <appender name="ASYNC_JIMO" class="ch.qos.logback.classic.AsyncAppender">
+        <appender-ref ref="JIMO_APPENDER"/>
+        <filter class="ch.qos.logback.classic.filter.ThresholdFilter">
+            <level>ERROR</level>
+        </filter>
+    </appender>
+
+    <root level="INFO">
+        <appender-ref ref="STDOUT"/>
+        <appender-ref ref="WARNING_UP_LOG"/>
+        <appender-ref ref="XIAOHUODUI_BUSS_LOG"/>
+        <appender-ref ref="LOGFILE"/>
+        <appender-ref ref="ASYNC_JIMO"/>
+    </root>
+</configuration>
